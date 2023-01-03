@@ -75,7 +75,7 @@ def browser_mode():
     url = args.url
     n = args.count
 
-    driver_path = "chromedriver"
+    driver_path = "./chromedriver"
     if not os.path.isfile(driver_path):
         print("Please download the chromedriver from https://chromedriver.chromium.org/downloads and place it in the current directory")
         exit(1)

@@ -17,8 +17,6 @@ from selenium.webdriver.chrome.service import Service
 import subprocess
 import json
 
-
-
 chrome_options = Options()
 
 parser = argparse.ArgumentParser()

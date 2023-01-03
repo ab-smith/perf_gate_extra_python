@@ -37,7 +37,8 @@ parser.add_argument(
     "--threshold", help="Threshold for the gate in ms. Default 2000", type=int, default=2000)
 parser.add_argument(
     "--lighthouse", help="Run lighthouse on the target URL. Default: Disabled. You need to install the CLI with npm first", action=argparse.BooleanOptionalAction)
-
+parser.add_argument(
+    "--write", help="Write the lighthouse results to a file. Default: Disabled", action=argparse.BooleanOptionalAction)
 
 args = parser.parse_args()
 console = Console()

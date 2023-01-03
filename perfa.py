@@ -13,6 +13,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.chrome.service import Service
 import subprocess
 import json
 
@@ -80,10 +81,11 @@ def browser_mode():
         print("Please download the chromedriver from https://chromedriver.chromium.org/downloads and place it in the current directory")
         exit(1)
     chrome_options.add_argument("--headless")
-
+    # Creating a service object
+    service= Service("./chromedriver")
     for _, i in enumerate(range(n), start=1):
         print(f"Run {i+1} of {n}...", end="\r")
-        driver = webdriver.Chrome(driver_path, options=chrome_options)
+        driver = webdriver.Chrome(service=service)
 
         driver.get(url)
         try:

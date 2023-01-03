@@ -36,7 +36,7 @@ parser.add_argument(
 parser.add_argument(
     "--threshold", help="Threshold for the gate in ms. Default 2000", type=int, default=2000)
 parser.add_argument(
-    "--lighthouse", help="Run lighthouse on the target URL. Default: Disabled", action=argparse.BooleanOptionalAction)
+    "--lighthouse", help="Run lighthouse on the target URL. Default: Disabled. You need to install the CLI with npm first", action=argparse.BooleanOptionalAction)
 
 
 args = parser.parse_args()
@@ -115,18 +115,19 @@ def lighthouse_mode(preset=None):
     # need lightouse installed globally using npm
     # npm install -g lighthouse
     # Default preset is mobile
-    print(">> Running the lighthouse audit")
+    print(f">> Running the lighthouse audit in {preset} mode")
     url = args.url
     n = args.count
+    tmp_list = list()
     for _, i in enumerate(range(n), start=1):
         print(f"Run {i+1} of {n}...", end="\r")
         # will use the lighthouse binary to run the audit
         if preset == "desktop":
             lighthouse = subprocess.Popen(['lighthouse', url, '--output=json', '--preset=desktop', '--only-cateogries=performance',
                                            'throttling-method=provided', '--chrome-flags="--headless"', '--quiet', '--output-path=./lighthouse.json'], stdout=subprocess.PIPE)
-        
+        if preset == "mobile":
             lighthouse = subprocess.Popen(['lighthouse', url, '--output=json', '--only-cateogries=performance',
-                                        'throttling-method=provided', '--chrome-flags="--headless"', '--quiet', '--output-path=./lighthouse.json'], stdout=subprocess.PIPE)
+                                           'throttling-method=provided', '--chrome-flags="--headless"', '--quiet', '--output-path=./lighthouse.json'], stdout=subprocess.PIPE)
         # wait for the process to finish
         lighthouse.wait()
         # I'm dumping the output to a file on purpose for debugging and analysis but can be used on the stdout pipe directly
@@ -145,6 +146,11 @@ def lighthouse_mode(preset=None):
         if args.verbose:
             print(
                 f"LCP: {LCP:.2f} FCP: {FCP:.2f} TTFB: {TTFB:.2f} TBT: {TBT:.2f}")
+        tmp_list.append({'TTFB': TTFB, 'FCP': FCP, 'LCP': LCP, 'TBT': TBT})
+    df = pd.DataFrame.from_records(tmp_list)
+    print(df.describe())
+    # need the 95 and 99 percentile for the data frame
+    print(df.quantile([0.95, 0.99]))
 
 
 def main():
@@ -187,3 +193,4 @@ if __name__ == "__main__":
         browser_mode()
     if args.lighthouse:
         lighthouse_mode(preset="desktop")
+        lighthouse_mode(preset="mobile")

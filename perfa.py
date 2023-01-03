@@ -116,6 +116,8 @@ def lighthouse_mode(preset=None):
     # npm install -g lighthouse
     # Default preset is mobile
     print(f">> Running the lighthouse audit in {preset} mode")
+    if preset=='mobile':
+        print(">> Mobile mode emulates a slow device: Moto G4 on a 3G connection")
     url = args.url
     n = args.count
     tmp_list = list()

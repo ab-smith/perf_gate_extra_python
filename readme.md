@@ -1,6 +1,6 @@
 # Powered-up perf gate (python version)
 
-- make sure you have pyhon and pip installed
+- make sure you have python and pip installed
 - install requirements (pip install -r requirements.txt)
 - if you're using browser mode, you need selenium and a chrome driver depending on your current browser version
   - `download the driver from the provided link depending on your chrome version`

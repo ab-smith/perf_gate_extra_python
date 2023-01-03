@@ -119,7 +119,7 @@ def lighthouse_mode(preset=None):
     # Default preset is mobile
     print(f">> Running the lighthouse audit in {preset} mode")
     if preset=='mobile':
-        print(">> Mobile mode emulates a slow device: Moto G4 on a 3G connection")
+        print(">> Mobile mode emulates a slow device: Moto G4 on a 4G connection")
     url = args.url
     n = args.count
     tmp_list = list()
@@ -141,7 +141,6 @@ def lighthouse_mode(preset=None):
             output = json.load(json_file)
         # Key metrics
 
-        TTFB = output['audits']['server-response-time']['numericValue']
         FCP = output['audits']['first-contentful-paint']['numericValue']
         LCP = output['audits']['largest-contentful-paint']['numericValue']
         TBT = output['audits']['total-blocking-time']['numericValue']
@@ -149,8 +148,8 @@ def lighthouse_mode(preset=None):
         # print these metrics
         if args.verbose:
             print(
-                f"LCP: {LCP:.2f} FCP: {FCP:.2f} TTFB: {TTFB:.2f} TBT: {TBT:.2f}")
-        tmp_list.append({'TTFB': TTFB, 'FCP': FCP, 'LCP': LCP, 'TBT': TBT})
+                f"LCP: {LCP:.2f} FCP: {FCP:.2f} TBT: {TBT:.2f}")
+        tmp_list.append({'FCP': FCP, 'LCP': LCP, 'TBT': TBT})
     df = pd.DataFrame.from_records(tmp_list)
     print(df.describe())
     # need the 95 and 99 percentile for the data frame

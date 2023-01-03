@@ -97,8 +97,6 @@ def browser_mode():
         raw_data = driver.execute_script(
             "return window.performance.getEntries()")[0]
 
-        print(raw_data)
-
         dns = raw_data["domainLookupEnd"] - raw_data["domainLookupStart"]
         tcp = raw_data["connectEnd"] - raw_data["connectStart"]
         ssl = raw_data["secureConnectionStart"] - raw_data["connectStart"]
@@ -106,6 +104,7 @@ def browser_mode():
         ttfb = raw_data["responseStart"] - raw_data["fetchStart"]
 
         if args.verbose:
+            print(raw_data)
             print(
                 f"DNS: {dns:.2f}ms, TCP: {tcp:.2f}ms, SSL: {ssl:.2f}ms, TTFB: {ttfb:.2f}ms, DOM: {dom:.2f}ms")
 

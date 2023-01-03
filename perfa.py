@@ -89,8 +89,8 @@ def browser_mode():
 
         driver.get(url)
         try:
-            sb = WebDriverWait(driver, 20).until(
-                EC.presence_of_element_located((By.ID, "searchBar")))
+            body = WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body")))
         except TimeoutException:
             print("Timeout reached without detecting the element. Skipping this run...")
             driver.quit()

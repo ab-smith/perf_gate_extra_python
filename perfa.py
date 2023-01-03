@@ -13,6 +13,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
+import subprocess
+import json
 
 chrome_options = Options()
 
@@ -33,6 +35,8 @@ parser.add_argument(
     "--output", help="Output file to save results. Optional", action="store_true")
 parser.add_argument(
     "--threshold", help="Threshold for the gate in ms. Default 2000", type=int, default=2000)
+parser.add_argument(
+    "--lighthouse", help="Run lighthouse on the target URL. Default: Disabled", action=argparse.BooleanOptionalAction)
 
 
 args = parser.parse_args()
@@ -64,6 +68,8 @@ def print_stats(ttfb_array):
 
 
 def browser_mode():
+
+    print(">> Running in browser mode for performance API")
 
     url = args.url
     n = args.count
@@ -98,13 +104,52 @@ def browser_mode():
         dom = raw_data["domInteractive"] - raw_data["responseStart"]
         ttfb = raw_data["responseStart"] - raw_data["fetchStart"]
 
-        print(
-            f"DNS: {dns:.2f}ms, TCP: {tcp:.2f}ms, SSL: {ssl:.2f}ms, TTFB: {ttfb:.2f}ms, DOM: {dom:.2f}ms")
+        if args.verbose:
+            print(
+                f"DNS: {dns:.2f}ms, TCP: {tcp:.2f}ms, SSL: {ssl:.2f}ms, TTFB: {ttfb:.2f}ms, DOM: {dom:.2f}ms")
 
         driver.quit()
 
 
+def lighthouse_mode(preset=None):
+    # need lightouse installed globally using npm
+    # npm install -g lighthouse
+    # Default preset is mobile
+    print(">> Running the lighthouse audit")
+    url = args.url
+    n = args.count
+    for _, i in enumerate(range(n), start=1):
+        print(f"Run {i+1} of {n}...", end="\r")
+        # will use the lighthouse binary to run the audit
+        if preset == "desktop":
+            lighthouse = subprocess.Popen(['lighthouse', url, '--output=json', '--preset=desktop', '--only-cateogries=performance',
+                                           'throttling-method=provided', '--chrome-flags="--headless"', '--quiet', '--output-path=./lighthouse.json'], stdout=subprocess.PIPE)
+        
+            lighthouse = subprocess.Popen(['lighthouse', url, '--output=json', '--only-cateogries=performance',
+                                        'throttling-method=provided', '--chrome-flags="--headless"', '--quiet', '--output-path=./lighthouse.json'], stdout=subprocess.PIPE)
+        # wait for the process to finish
+        lighthouse.wait()
+        # I'm dumping the output to a file on purpose for debugging and analysis but can be used on the stdout pipe directly
+        # load the json
+        output = dict()
+        with open('./lighthouse.json') as json_file:
+            output = json.load(json_file)
+        # Key metrics
+
+        TTFB = output['audits']['server-response-time']['numericValue']
+        FCP = output['audits']['first-contentful-paint']['numericValue']
+        LCP = output['audits']['largest-contentful-paint']['numericValue']
+        TBT = output['audits']['total-blocking-time']['numericValue']
+
+        # print these metrics
+        if args.verbose:
+            print(
+                f"LCP: {LCP:.2f} FCP: {FCP:.2f} TTFB: {TTFB:.2f} TBT: {TBT:.2f}")
+
+
 def main():
+
+    print(">> Running the requests mode (main)")
 
     url = args.url
     reference_url = args.reference
@@ -140,3 +185,5 @@ if __name__ == "__main__":
     main()
     if args.browsermode:
         browser_mode()
+    if args.lighthouse:
+        lighthouse_mode(preset="desktop")

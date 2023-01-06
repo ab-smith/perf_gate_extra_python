@@ -166,10 +166,9 @@ def lighthouse_mode(preset=None):
             print(
                 f"LCP: {LCP:.2f} FCP: {FCP:.2f} TBT: {TBT:.2f}")
         if preset == 'mobile':
-            tmp_list.append({'FCP_mobile': FCP, 'LCP_mobile': LCP, 'TBT_mobile': TBT})
+            tmp_list.append({'FCP_mob': FCP, 'LCP_mob': LCP, 'TBT_mob': TBT})
         else:
             tmp_list.append({'FCP': FCP, 'LCP': LCP, 'TBT': TBT})
-
 
     df = pd.DataFrame.from_records(tmp_list)
     print(df.describe(percentiles=[0.95, 0.99]))
@@ -201,6 +200,7 @@ def ttfb_mode():
     print(f">> Target URL: {url}")
 
     df = pd.DataFrame.from_records(ttfb_list)
+
     print(df.describe(percentiles=[0.95, 0.99]))
 
     if args.gate:
@@ -214,7 +214,10 @@ def ttfb_mode():
                 f"[bold green]Gate passed. Analyzed TTFB is {np.mean(ttfb_array_tgt):.2f}ms[/bold green]")
     return df
 
+
 def main():
+    pd.set_option('display.float_format', lambda x: '%.0f' % x)
+
     ttfb_df = ttfb_mode()
     if args.browsermode:
         browser_mode()
@@ -222,9 +225,10 @@ def main():
         desktop_df = lighthouse_mode(preset="desktop")
         mobile_df = lighthouse_mode(preset="mobile")
         ttfb_df = pd.concat([ttfb_df, desktop_df, mobile_df])
+    print(">> Results :", args.url)
     with pd.option_context('display.max_columns', 40):
         print(ttfb_df.describe(percentiles=[0.95, 0.99]))
 
+
 if __name__ == "__main__":
     main()
-

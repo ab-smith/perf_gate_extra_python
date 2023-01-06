@@ -116,11 +116,14 @@ def lighthouse_run(url, preset=None):
             ['lighthouse', url, '--output=json', '--preset=desktop', '--only-categories=performance',
              'throttling-method=provided', '--chrome-flags="--headless"', '--quiet', '--output-path=./lighthouse.json'],
             stdout=subprocess.PIPE)
-    if preset == "mobile":
+    elif preset == "mobile":
         lighthouse = subprocess.Popen(
             ['lighthouse', url, '--output=json', '--only-categories=performance',
              'throttling-method=provided', '--chrome-flags="--headless"', '--quiet',
              '--output-path=./lighthouse.json'], stdout=subprocess.PIPE)
+    else:
+        return None
+
     # wait for the process to finish
     lighthouse.wait()
     # I'm dumping the output to a file on purpose for debugging and analysis but can be used on the stdout pipe directly
@@ -134,7 +137,7 @@ def lighthouse_run(url, preset=None):
 
 
 def lighthouse_mode(preset=None):
-    # need lightouse installed globally using npm
+    # need lighthouse installed globally using npm
     # npm install -g lighthouse
     # Default preset is mobile
     print(f">> Running the lighthouse audit in {preset} mode")

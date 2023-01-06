@@ -114,12 +114,12 @@ def lighthouse_run(url, preset=None):
     if preset == "desktop":
         lighthouse = subprocess.Popen(
             ['lighthouse', url, '--output=json', '--preset=desktop', '--only-categories=performance',
-             'throttling-method=provided', '--chrome-flags="--headless"', '--quiet', '--output-path=./lighthouse.json'],
+             '--throttling-method=provided', '--chrome-flags="--headless"', '--quiet', '--output-path=./lighthouse.json'],
             stdout=subprocess.PIPE)
     elif preset == "mobile":
         lighthouse = subprocess.Popen(
             ['lighthouse', url, '--output=json', '--only-categories=performance',
-             'throttling-method=provided', '--chrome-flags="--headless"', '--quiet',
+             '--throttling-method=simulate', '--chrome-flags="--headless"', '--quiet',
              '--output-path=./lighthouse.json'], stdout=subprocess.PIPE)
     else:
         return None

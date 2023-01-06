@@ -1,5 +1,4 @@
 import requests
-import numpy as np
 import pandas as pd
 import argparse
 from rich import print
@@ -26,13 +25,14 @@ parser.add_argument("--count", help="Number of runs. Default: 20",
                     type=int, required=False, default=20)
 parser.add_argument(
     "--reference", help="reference URL to compare with. Not implemented yet", required=False)
-parser.add_argument("--verbose", help="increase verbosity. Default: Disabled",
-                    action=argparse.BooleanOptionalAction)
+parser.add_argument("--verbose", help="increase verbosity. Default: Disabled", default=False,
+                    action="store_true")
 parser.add_argument(
-    "--gate", help="Perf gate to control program output. Default: Disabled", action=argparse.BooleanOptionalAction)
+    "--gate", help="Perf gate to control program output. Default: Disabled", default=False,
+    action="store_true")
 parser.add_argument(
-    "--browsermode", help="Gather metrics using headless chrome. Default: Disabled",
-    action=argparse.BooleanOptionalAction)
+    "--browsermode", help="Gather metrics using headless chrome. Default: Disabled", default=False,
+    action="store_true")
 parser.add_argument(
     "--output", help="Output file to save results. Optional", action="store_true")
 parser.add_argument(
@@ -40,12 +40,13 @@ parser.add_argument(
 parser.add_argument(
     "--lighthouse",
     help="Run lighthouse on the target URL. Default: Disabled. You need to install the CLI with npm first",
-    action=argparse.BooleanOptionalAction)
+    default=False, action="store_true")
 parser.add_argument(
-    "--write", help="Write the lighthouse results to a file. Default: Disabled", action=argparse.BooleanOptionalAction)
-
+    "--write", help="Write the lighthouse results to a file. Default: Disabled", default=False,
+    action="store_true")
 parser.add_argument(
-    "--short", help="Output result as csv. Default: Disabled", action=argparse.BooleanOptionalAction)
+    "--short", help="Output result as csv. Default: Disabled", default=False,
+    action="store_true")
 
 args = parser.parse_args()
 console = Console()
@@ -62,16 +63,6 @@ def measure_ttfb(url):
     if args.verbose:
         print(f"TTFB: {elapsed * 1000:.2f}ms, Status: {response.status_code}")
     return elapsed * 1000
-
-
-def print_stats(ttfb_array):
-    print(f"Mean: {np.mean(ttfb_array):.2f}")
-    print(f"Median: {np.median(ttfb_array):.2f}")
-    print(f"Standard Deviation: {np.std(ttfb_array):.2f}")
-    print(f"Slowest: {np.max(ttfb_array):.2f}")
-    print(f"Fastest: {np.min(ttfb_array):.2f}")
-    print(f"95th percentile: {np.percentile(ttfb_array, 95):.2f}")
-    print(f"99th percentile: {np.percentile(ttfb_array, 99):.2f}")
 
 
 def browser_mode():
@@ -157,18 +148,18 @@ def lighthouse_mode(preset=None):
 
         output = lighthouse_run(url, preset)
 
-        FCP = output['audits']['first-contentful-paint']['numericValue']
-        LCP = output['audits']['largest-contentful-paint']['numericValue']
-        TBT = output['audits']['total-blocking-time']['numericValue']
+        fcp = output['audits']['first-contentful-paint']['numericValue']
+        lcp = output['audits']['largest-contentful-paint']['numericValue']
+        tbt = output['audits']['total-blocking-time']['numericValue']
 
         # print these metrics
         if args.verbose:
             print(
-                f"LCP: {LCP:.2f} FCP: {FCP:.2f} TBT: {TBT:.2f}")
+                f"LCP: {lcp:.2f} fcp: {fcp:.2f} TBT: {tbt:.2f}")
         if preset == 'mobile':
-            tmp_list.append({'FCP_mob': FCP, 'LCP_mob': LCP, 'TBT_mob': TBT})
+            tmp_list.append({'FCP_mob': fcp, 'LCP_mob': lcp, 'TBT_mob': tbt})
         else:
-            tmp_list.append({'FCP': FCP, 'LCP': LCP, 'TBT': TBT})
+            tmp_list.append({'FCP': fcp, 'LCP': lcp, 'TBT': tbt})
 
     df = pd.DataFrame.from_records(tmp_list)
     print(df.describe(percentiles=[0.95, 0.99]))
@@ -178,7 +169,7 @@ def lighthouse_mode(preset=None):
 
 
 def ttfb_mode():
-    print(">> Running the requests mode (main)")
+    print(">> Running the requests mode (ttfb)")
     url = args.url
     reference_url = args.reference
     n = args.count * 5
@@ -189,12 +180,10 @@ def ttfb_mode():
 
     if not args.verbose:
         print(f"Quiet mode. Measuring {n} times. Please wait...")
-    ttfb_array_tgt = np.array([])
     ttfb_list = []
     for _, i in enumerate(range(n), start=1):
         print(f"Run {i} of {n}...", end="\r")
         ttfb = measure_ttfb(url)
-        ttfb_array_tgt = np.append(ttfb_array_tgt, ttfb)
         ttfb_list.append({'TTFB': ttfb})
 
     print(f">> Target URL: {url}")
@@ -204,14 +193,17 @@ def ttfb_mode():
     print(df.describe(percentiles=[0.95, 0.99]))
 
     if args.gate:
-        metric = np.percentile(ttfb_array_tgt, 95)
+        # 95 quantile : df['TTFB'].quantile(0.95)
+        # mean : df['TTFB'].mean()
+        # median : df['TTFB'].median()
+        metric = df['TTFB'].quantile(0.95)
         if metric > args.threshold:
             console.print(
-                f"[bold red]Gate failed. Analyzed TTFB is {np.mean(ttfb_array_tgt):.2f}ms[/bold red]")
+                f"[bold red]Gate failed. Analyzed TTFB 95% is {metric:.2f}ms[/bold red]")
             sys.exit(1)
         else:
             console.print(
-                f"[bold green]Gate passed. Analyzed TTFB is {np.mean(ttfb_array_tgt):.2f}ms[/bold green]")
+                f"[bold green]Gate passed. Analyzed TTFB 95% is {metric:.2f}ms[/bold green]")
     return df
 
 

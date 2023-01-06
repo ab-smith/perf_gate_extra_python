@@ -23,6 +23,8 @@ parser.add_argument("--url", help="URL to measure target",
                     type=str, required=True)
 parser.add_argument("--count", help="Number of runs. Default: 20",
                     type=int, required=False, default=20)
+parser.add_argument("--ttfbcount", help="Number of runs for ttfb. Default: 100",
+                    type=int, required=False, default=100)
 parser.add_argument(
     "--reference", help="reference URL to compare with. Not implemented yet", required=False)
 parser.add_argument("--verbose", help="increase verbosity. Default: Disabled", default=False,
@@ -175,7 +177,7 @@ def ttfb_mode():
     print(">> Running the requests mode (ttfb)")
     url = args.url
     reference_url = args.reference
-    n = args.count * 5
+    n = args.ttfbcount
 
     if args.gate:
         print(

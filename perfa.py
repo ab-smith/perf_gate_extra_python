@@ -54,7 +54,7 @@ parser.add_argument(
     "--skiprequests", help="Enabling this will skip the first pass with requests. Default: Disabled", default=False,
     action="store_true")
 parser.add_argument(
-    "--config", help="Config file to use. Default: None", default=False,
+    "--config", help="TODO: Config file to use. Default: None", default=False,
     action="store_true")
 
 args = parser.parse_args()

@@ -1,5 +1,4 @@
 import requests
-import numpy as np
 import pandas as pd
 import argparse
 from rich import print
@@ -24,29 +23,38 @@ parser.add_argument("--url", help="URL to measure target",
                     type=str, required=True)
 parser.add_argument("--count", help="Number of runs. Default: 20",
                     type=int, required=False, default=20)
+parser.add_argument("--ttfbcount", help="Number of runs for ttfb. Default: 100",
+                    type=int, required=False, default=100)
 parser.add_argument(
     "--reference", help="reference URL to compare with. Not implemented yet", required=False)
-parser.add_argument("--verbose", help="increase verbosity. Default: Disabled",
-                    action=argparse.BooleanOptionalAction)
+parser.add_argument("--verbose", help="increase verbosity. Default: Disabled", default=False,
+                    action="store_true")
 parser.add_argument(
-    "--gate", help="Perf gate to control program output. Default: Disabled", action=argparse.BooleanOptionalAction)
+    "--gate", help="Perf gate to control program output. Default: Disabled", default=False,
+    action="store_true")
 parser.add_argument(
-    "--browsermode", help="Gather metrics using headless chrome. Default: Disabled", action=argparse.BooleanOptionalAction)
+    "--browsermode", help="Gather metrics using headless chrome. Default: Disabled", default=False,
+    action="store_true")
 parser.add_argument(
     "--output", help="Output file to save results. Optional", action="store_true")
 parser.add_argument(
     "--threshold", help="Threshold for the gate in ms. Default 2000", type=int, default=2000)
 parser.add_argument(
-    "--lighthouse", help="Run lighthouse on the target URL. Default: Disabled. You need to install the CLI with npm first", action=argparse.BooleanOptionalAction)
+    "--lighthouse",
+    help="Run lighthouse on the target URL. Default: Disabled. You need to install the CLI with npm first",
+    default=False, action="store_true")
 parser.add_argument(
-    "--write", help="Write the lighthouse results to a file. Default: Disabled", action=argparse.BooleanOptionalAction)
+    "--write", help="Write the lighthouse results to a file. Default: Disabled", default=False,
+    action="store_true")
+parser.add_argument(
+    "--short", help="Output result as csv. Default: Disabled", default=False,
+    action="store_true")
 
 args = parser.parse_args()
 console = Console()
 
 
 def measure_ttfb(url):
-
     headers = {
         'User-Agent': 'Spark/PerfGate',
     }
@@ -55,22 +63,11 @@ def measure_ttfb(url):
     response = requests.get(url, headers=headers)
     elapsed = time.perf_counter() - start
     if args.verbose:
-        print(f"TTFB: {elapsed*1000:.2f}ms, Status: {response.status_code}")
-    return elapsed*1000
-
-
-def print_stats(ttfb_array):
-    print(f"Mean: {np.mean(ttfb_array):.2f}")
-    print(f"Median: {np.median(ttfb_array):.2f}")
-    print(f"Standard Deviation: {np.std(ttfb_array):.2f}")
-    print(f"Slowest: {np.max(ttfb_array):.2f}")
-    print(f"Fastest: {np.min(ttfb_array):.2f}")
-    print(f"95th percentile: {np.percentile(ttfb_array, 95):.2f}")
-    print(f"99th percentile: {np.percentile(ttfb_array, 99):.2f}")
+        print(f"TTFB: {elapsed * 1000:.2f}ms, Status: {response.status_code}")
+    return elapsed * 1000
 
 
 def browser_mode():
-
     print(">> Running in browser mode for performance API")
 
     url = args.url
@@ -78,13 +75,14 @@ def browser_mode():
 
     driver_path = "./chromedriver"
     if not os.path.isfile(driver_path):
-        print("Please download the chromedriver from https://chromedriver.chromium.org/downloads and place it in the current directory")
+        print(
+            "Please download the chromedriver from https://chromedriver.chromium.org/downloads and place it in the current directory")
         exit(1)
     chrome_options.add_argument("--headless")
     # Creating a service object
-    service= Service("./chromedriver")
+    service = Service("./chromedriver")
     for _, i in enumerate(range(n), start=1):
-        print(f"Run {i+1} of {n}...", end="\r")
+        print(f"Run {i + 1} of {n}...", end="\r")
         driver = webdriver.Chrome(service=service)
 
         driver.get(url)
@@ -113,56 +111,73 @@ def browser_mode():
         driver.quit()
 
 
+def lighthouse_run(url, preset=None):
+    # will use the lighthouse binary to run the audit
+    if preset == "desktop":
+        lighthouse = subprocess.Popen(
+            ['lighthouse', url, '--output=json', '--preset=desktop', '--only-categories=performance',
+             '--throttling-method=provided', '--chrome-flags="--headless"', '--quiet', '--output-path=./lighthouse.json'],
+            stdout=subprocess.PIPE)
+    elif preset == "mobile":
+        lighthouse = subprocess.Popen(
+            ['lighthouse', url, '--output=json', '--only-categories=performance',
+             '--throttling-method=simulate', '--chrome-flags="--headless"', '--quiet',
+             '--output-path=./lighthouse.json'], stdout=subprocess.PIPE)
+    else:
+        return None
+
+    # wait for the process to finish
+    lighthouse.wait()
+    # I'm dumping the output to a file on purpose for debugging and analysis but can be used on the stdout pipe directly
+    # load the json
+    output = dict()
+    with open('./lighthouse.json') as json_file:
+        output = json.load(json_file)
+    # Key metrics
+
+    return output
+
+
 def lighthouse_mode(preset=None):
-    # need lightouse installed globally using npm
+    # need lighthouse installed globally using npm
     # npm install -g lighthouse
     # Default preset is mobile
     print(f">> Running the lighthouse audit in {preset} mode")
-    if preset=='mobile':
+    if preset == 'mobile':
         print(">> Mobile mode emulates a slow device: Moto G4 on a 4G connection")
     url = args.url
     n = args.count
     tmp_list = list()
     for _, i in enumerate(range(n), start=1):
-        print(f"Run {i+1} of {n}...", end="\r")
-        # will use the lighthouse binary to run the audit
-        if preset == "desktop":
-            lighthouse = subprocess.Popen(['lighthouse', url, '--output=json', '--preset=desktop', '--only-cateogries=performance',
-                                           'throttling-method=provided', '--chrome-flags="--headless"', '--quiet', '--output-path=./lighthouse.json'], stdout=subprocess.PIPE)
-        if preset == "mobile":
-            lighthouse = subprocess.Popen(['lighthouse', url, '--output=json', '--only-cateogries=performance',
-                                           'throttling-method=provided', '--chrome-flags="--headless"', '--quiet', '--output-path=./lighthouse.json'], stdout=subprocess.PIPE)
-        # wait for the process to finish
-        lighthouse.wait()
-        # I'm dumping the output to a file on purpose for debugging and analysis but can be used on the stdout pipe directly
-        # load the json
-        output = dict()
-        with open('./lighthouse.json') as json_file:
-            output = json.load(json_file)
-        # Key metrics
+        print(f"Run {i + 1} of {n}...", end="\r")
 
-        FCP = output['audits']['first-contentful-paint']['numericValue']
-        LCP = output['audits']['largest-contentful-paint']['numericValue']
-        TBT = output['audits']['total-blocking-time']['numericValue']
+        output = lighthouse_run(url, preset)
+
+        fcp = output['audits']['first-contentful-paint']['numericValue']
+        lcp = output['audits']['largest-contentful-paint']['numericValue']
+        tbt = output['audits']['total-blocking-time']['numericValue']
 
         # print these metrics
         if args.verbose:
             print(
-                f"LCP: {LCP:.2f} FCP: {FCP:.2f} TBT: {TBT:.2f}")
-        tmp_list.append({'FCP': FCP, 'LCP': LCP, 'TBT': TBT})
+                f"LCP: {lcp:.2f} fcp: {fcp:.2f} TBT: {tbt:.2f}")
+        if preset == 'mobile':
+            tmp_list.append({'FCP_mob': fcp, 'LCP_mob': lcp, 'TBT_mob': tbt})
+        else:
+            tmp_list.append({'FCP': fcp, 'LCP': lcp, 'TBT': tbt})
+
     df = pd.DataFrame.from_records(tmp_list)
-    print(df.describe())
+    print(df.describe(percentiles=[0.95, 0.99]))
     # need the 95 and 99 percentile for the data frame
-    print(df.quantile([0.95, 0.99]))
+    # print(df.quantile([0.95, 0.99]))
+    return df
 
 
-def main():
-
-    print(">> Running the requests mode (main)")
-
+def ttfb_mode():
+    print(">> Running the requests mode (ttfb)")
     url = args.url
     reference_url = args.reference
-    n = args.count
+    n = args.ttfbcount
 
     if args.gate:
         print(
@@ -170,30 +185,47 @@ def main():
 
     if not args.verbose:
         print(f"Quiet mode. Measuring {n} times. Please wait...")
-    ttfb_array_tgt = np.array([])
+    ttfb_list = []
     for _, i in enumerate(range(n), start=1):
         print(f"Run {i} of {n}...", end="\r")
         ttfb = measure_ttfb(url)
-        ttfb_array_tgt = np.append(ttfb_array_tgt, ttfb)
+        ttfb_list.append({'TTFB': ttfb})
 
     print(f">> Target URL: {url}")
-    print_stats(ttfb_array_tgt)
+
+    df = pd.DataFrame.from_records(ttfb_list)
+
+    print(df.describe(percentiles=[0.95, 0.99]))
 
     if args.gate:
-        metric = np.percentile(ttfb_array_tgt, 95)
+        # 95 quantile : df['TTFB'].quantile(0.95)
+        # mean : df['TTFB'].mean()
+        # median : df['TTFB'].median()
+        metric = df['TTFB'].quantile(0.95)
         if metric > args.threshold:
             console.print(
-                f"[bold red]Gate failed. Analyzed TTFB is {np.mean(ttfb_array_tgt):.2f}ms[/bold red]")
+                f"[bold red]Gate failed. Analyzed TTFB 95% is {metric:.2f}ms[/bold red]")
             sys.exit(1)
         else:
             console.print(
-                f"[bold green]Gate passed. Analyzed TTFB is {np.mean(ttfb_array_tgt):.2f}ms[/bold green]")
+                f"[bold green]Gate passed. Analyzed TTFB 95% is {metric:.2f}ms[/bold green]")
+    return df
+
+
+def main():
+    pd.set_option('display.float_format', lambda x: '%.0f' % x)
+
+    ttfb_df = ttfb_mode()
+    if args.browsermode:
+        browser_mode()
+    if args.lighthouse:
+        desktop_df = lighthouse_mode(preset="desktop")
+        mobile_df = lighthouse_mode(preset="mobile")
+        ttfb_df = pd.concat([ttfb_df, desktop_df, mobile_df])
+    print(">> Results :", args.url)
+    with pd.option_context('display.max_columns', 40):
+        print(ttfb_df.describe(percentiles=[0.95, 0.99]))
 
 
 if __name__ == "__main__":
     main()
-    if args.browsermode:
-        browser_mode()
-    if args.lighthouse:
-        lighthouse_mode(preset="desktop")
-        lighthouse_mode(preset="mobile")

@@ -54,14 +54,13 @@ parser.add_argument(
     "--skiprequests", help="Enabling this will skip the first pass with requests. Default: Disabled", default=False,
     action="store_true")
 parser.add_argument(
-    "--config", help="TODO: Config file to use. Default: None", default=False,
-    action="store_true")
+    "--config", help="Config file to use instead of arguments. URL will still be required but will be overwritten by the config file")
 
 args = parser.parse_args()
 console = Console()
 # since params are getting numerous, we can consider a config file in yaml
 if args.config:
-    with open("config.yml", 'r') as ymlfile:
+    with open(args.config, 'r') as ymlfile:
         cfg = yaml.load(ymlfile, Loader=yaml.FullLoader)
         args.url = cfg['url']
         args.tstcount = cfg['tstcount']

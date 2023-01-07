@@ -15,15 +15,16 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.chrome.service import Service
 import subprocess
 import json
+import yaml
 
 chrome_options = Options()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--url", help="URL to measure target",
                     type=str, required=True)
-parser.add_argument("--count", help="Number of runs. Default: 20",
+parser.add_argument("--tstcount", help="Number of runs for lighthouse and browser mode tests. Default: 20",
                     type=int, required=False, default=20)
-parser.add_argument("--ttfbcount", help="Number of runs for ttfb. Default: 100",
+parser.add_argument("--reqcount", help="Number of requests to measure ttfb. Default: 100",
                     type=int, required=False, default=100)
 parser.add_argument(
     "--reference", help="reference URL to compare with. Not implemented yet", required=False)
@@ -33,26 +34,48 @@ parser.add_argument(
     "--gate", help="Perf gate to control program output. Default: Disabled", default=False,
     action="store_true")
 parser.add_argument(
+    "--threshold", help="Threshold for the gate in ms. Default 2000", type=int, default=2000)
+parser.add_argument(
     "--browsermode", help="Gather metrics using headless chrome. Default: Disabled", default=False,
     action="store_true")
-parser.add_argument(
-    "--output", help="Output file to save results. Optional", action="store_true")
-parser.add_argument(
-    "--threshold", help="Threshold for the gate in ms. Default 2000", type=int, default=2000)
 parser.add_argument(
     "--lighthouse",
     help="Run lighthouse on the target URL. Default: Disabled. You need to install the CLI with npm first",
     default=False, action="store_true")
+parser.add_argument(
+    "--output", help="Output file to save results. Optional", action="store_true")
 parser.add_argument(
     "--write", help="Write the lighthouse results to a file. Default: Disabled", default=False,
     action="store_true")
 parser.add_argument(
     "--short", help="Output result as csv. Default: Disabled", default=False,
     action="store_true")
+parser.add_argument(
+    "--skiprequests", help="Enabling this will skip the first pass with requests. Default: Disabled", default=False,
+    action="store_true")
+parser.add_argument(
+    "--config", help="Config file to use. Default: None", default=False,
+    action="store_true")
 
 args = parser.parse_args()
 console = Console()
-
+# since params are getting numerous, we can consider a config file in yaml
+if args.config:
+    with open("config.yml", 'r') as ymlfile:
+        cfg = yaml.load(ymlfile, Loader=yaml.FullLoader)
+        args.url = cfg['url']
+        args.tstcount = cfg['tstcount']
+        args.reqcount = cfg['reqcount']
+        args.reference = cfg['reference']
+        args.verbose = cfg['verbose']
+        args.gate = cfg['gate']
+        args.threshold = cfg['threshold']
+        args.browsermode = cfg['browsermode']
+        args.lighthouse = cfg['lighthouse']
+        args.output = cfg['output']
+        args.write = cfg['write']
+        args.short = cfg['short']
+        args.skiprequests = cfg['skiprequests']
 
 def measure_ttfb(url):
     headers = {
@@ -71,7 +94,7 @@ def browser_mode():
     print(">> Running in browser mode for performance API")
 
     url = args.url
-    n = args.count
+    n = args.tstcount
 
     driver_path = "./chromedriver"
     if not os.path.isfile(driver_path):
@@ -142,11 +165,13 @@ def lighthouse_mode(preset=None):
     # need lighthouse installed globally using npm
     # npm install -g lighthouse
     # Default preset is mobile
-    print(f">> Running the lighthouse audit in {preset} mode")
-    if preset == 'mobile':
+
+    print(f">> Running the lighthouse audit in {preset} mode. Median is the 50% percentile")
+    if preset=='mobile':
+
         print(">> Mobile mode emulates a slow device: Moto G4 on a 4G connection")
     url = args.url
-    n = args.count
+    n = args.tstcount
     tmp_list = list()
     for _, i in enumerate(range(n), start=1):
         print(f"Run {i + 1} of {n}...", end="\r")
@@ -167,17 +192,18 @@ def lighthouse_mode(preset=None):
             tmp_list.append({'FCP': fcp, 'LCP': lcp, 'TBT': tbt})
 
     df = pd.DataFrame.from_records(tmp_list)
+
     print(df.describe(percentiles=[0.95, 0.99]))
-    # need the 95 and 99 percentile for the data frame
-    # print(df.quantile([0.95, 0.99]))
+
     return df
 
 
+
 def ttfb_mode():
-    print(">> Running the requests mode (ttfb)")
+    print(">> Running the requests mode (ttfb only)")
     url = args.url
     reference_url = args.reference
-    n = args.ttfbcount
+    n = args.reqcount
 
     if args.gate:
         print(
@@ -214,8 +240,12 @@ def ttfb_mode():
 
 def main():
     pd.set_option('display.float_format', lambda x: '%.0f' % x)
+    ttfb_df = pd.DataFrame()
+    if args.skiprequests:
+        print(">> Skipping requests mode. You won't get TTFB metrics.")
+    else:
+        ttfb_df = ttfb_mode()
 
-    ttfb_df = ttfb_mode()
     if args.browsermode:
         browser_mode()
     if args.lighthouse:

@@ -1,0 +1,13 @@
+url: https://www.example.com
+tstcount: 10
+reqcount: 100
+reference: https://www.reference.com
+verbose: true
+gate: false
+threshold: 2000
+skiprequests: false
+browsermode: false
+lighthouse: false
+output: "/path/to/output/directory"
+write: true
+short: false
